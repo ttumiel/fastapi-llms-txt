@@ -1,4 +1,13 @@
 from setuptools import setup, find_packages
+import os
+
+# Read readme file using context manager
+readme_path = "readme.md"
+if os.path.exists(readme_path):
+    with open(readme_path, "r", encoding="utf-8") as f:
+        long_description = f.read()
+else:
+    long_description = ""
 
 setup(
     name="fastapi-llms-txt",
@@ -11,7 +20,7 @@ setup(
     author="Your Name",
     author_email="your.email@example.com",
     description="FastAPI plugin to dynamically generate an /llms.txt route",
-    long_description=open("readme.md").read(),
+    long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/fastapi-llms-txt",
     classifiers=[

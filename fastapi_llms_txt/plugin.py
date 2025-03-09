@@ -1,10 +1,13 @@
 from typing import Dict, List, Optional, Any
 from fastapi import FastAPI, APIRouter
 from fastapi.responses import PlainTextResponse
-from pydantic import HttpUrl, Field
 
-from .models import ProjectDescription, LinkItem
-from .generator import LLMsTxtGenerator
+from fastapi_llms_txt.models import ProjectDescription, LinkItem
+from fastapi_llms_txt.generator import LLMsTxtGenerator
+
+# Constants
+LLMS_TXT_TAG = "LLMs.txt"
+LLMS_TXT_ENDPOINT = "/llms.txt"
 
 
 def add_llms_txt(
@@ -17,7 +20,7 @@ def add_llms_txt(
 ) -> None:
     """
     Add an /llms.txt endpoint to a FastAPI application.
-    
+
     Args:
         app: The FastAPI application.
         title: Title of the project.
@@ -28,31 +31,39 @@ def add_llms_txt(
     """
     if sections is None:
         sections = {}
-    
-    # Convert dict links to LinkItem objects
+
+    # Convert dict links to LinkItem objects with validation
     processed_sections = {}
     for section_name, links in sections.items():
-        processed_sections[section_name] = [
-            LinkItem(title=link["title"], url=link["url"]) 
-            for link in links
-        ]
-    
+        section_items = []
+        for link in links:
+            try:
+                # Check that required keys exist
+                if "title" not in link or "url" not in link:
+                    raise ValueError(f"Link must have 'title' and 'url' keys: {link}")
+                section_items.append(LinkItem(title=link["title"], url=link["url"]))
+            except Exception as e:
+                # Log the error but continue processing other links
+                print(f"Error processing link in section '{section_name}': {e}")
+                continue
+        processed_sections[section_name] = section_items
+
     project_description = ProjectDescription(
         title=title,
         summary=summary,
         notes=notes,
         sections=processed_sections
     )
-    
+
     generator = LLMsTxtGenerator(
         project_description=project_description,
         app=app if include_api_docs else None
     )
-    
-    router = APIRouter(tags=["LLMs.txt"])
-    
+
+    router = APIRouter(tags=[LLMS_TXT_TAG])
+
     @router.get(
-        "/llms.txt", 
+        LLMS_TXT_ENDPOINT,
         response_class=PlainTextResponse,
         summary="Get llms.txt contents",
         description=(
@@ -70,28 +81,28 @@ def add_llms_txt(
     async def serve_llms_txt():
         """
         Serves the llms.txt file content.
-        
+
         Returns:
             A plain text representation of the llms.txt file with information about the API
             that is helpful for Large Language Models.
         """
         content = generator.generate()
         return content
-    
+
     # Use FastAPI's route description to document in OpenAPI schema
     if app.openapi_tags is None:
         app.openapi_tags = []
-    
+
     # Add LLMs.txt tag description if it doesn't exist
-    llms_tag_exists = any(tag.get("name") == "LLMs.txt" for tag in app.openapi_tags)
+    llms_tag_exists = any(tag.get("name") == LLMS_TXT_TAG for tag in app.openapi_tags)
     if not llms_tag_exists:
         app.openapi_tags.append({
-            "name": "LLMs.txt",
+            "name": LLMS_TXT_TAG,
             "description": (
                 "Endpoints related to the llms.txt specification, "
                 "which provides information for Large Language Models "
                 "about the purpose and capabilities of this API."
             )
         })
-    
+
     app.include_router(router)

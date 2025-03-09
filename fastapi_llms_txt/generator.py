@@ -1,7 +1,11 @@
 from typing import List, Dict, Optional, Any
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
-from .models import ProjectDescription
+from fastapi_llms_txt.models import ProjectDescription
+
+# Constants
+SERVE_LLMS_TXT = "serve_llms_txt"
+DEFAULT_HTTP_METHOD = "GET"
 
 
 class LLMsTxtGenerator:
@@ -65,8 +69,8 @@ class LLMsTxtGenerator:
                 if path:  # Only process routes with a path
                     has_routes_content = True
                     
-                    # Convert methods to string, default to GET if None or empty
-                    methods_str = ", ".join(methods) if methods else "GET"
+                    # Convert methods to string, using default if None or empty
+                    methods_str = ", ".join(methods) if methods else DEFAULT_HTTP_METHOD
                     content.append(f"### {methods_str} {path}")
                     content.append("")
                     
@@ -98,23 +102,24 @@ class LLMsTxtGenerator:
         if not self.app:
             return []
         
-        routes = []
-        for route in self.app.routes:
-            if isinstance(route, APIRoute) and route.name != "serve_llms_txt":
-                routes.append(route)
-        return routes
+        # Use list comprehension for cleaner code
+        return [route for route in self.app.routes 
+                if isinstance(route, APIRoute) and route.name != SERVE_LLMS_TXT]
     
     def _get_endpoint_name(self, route: Any) -> str:
         """Get a human-readable name for an endpoint."""
         path = getattr(route, "path", "")
         func = getattr(route, "endpoint", None)
         
+        # Check if this is the function that serves llms.txt
+        func_name = getattr(func, "__name__", "") if func else ""
+        
         # Skip llms.txt endpoints
-        if func and hasattr(func, "__name__") and func.__name__ == "serve_llms_txt":
+        if func_name == SERVE_LLMS_TXT:
             return ""
             
-        if func and hasattr(func, "__name__") and func.__name__ != "serve_llms_txt":
-            return func.__name__.replace("_", " ").title()
+        if func_name and func_name != SERVE_LLMS_TXT:
+            return func_name.replace("_", " ").title()
         elif path:
             parts = [p for p in path.split("/") if p and not p.startswith("{")]
             if parts:
@@ -128,8 +133,9 @@ class LLMsTxtGenerator:
         
         # Extract path parameters from the path
         path_params = {}
-        if hasattr(route, "path") and "{" in route.path:
-            path_parts = route.path.split("/")
+        route_path = getattr(route, "path", "")
+        if route_path and "{" in route_path:
+            path_parts = route_path.split("/")
             for part in path_parts:
                 if part.startswith("{") and part.endswith("}"):
                     param_name = part[1:-1]  # Remove the curly braces
@@ -141,36 +147,40 @@ class LLMsTxtGenerator:
                     }
         
         # Process parameters from the route's dependant (these have more information)
-        if hasattr(route, "dependant") and hasattr(route.dependant, "params"):
-            for param in route.dependant.params:
-                # Skip if we don't have a name
-                if not hasattr(param, "name"):
-                    continue
+        route_dependant = getattr(route, "dependant", None)
+        dependant_params = getattr(route_dependant, "params", []) if route_dependant else []
+        
+        for param in dependant_params:
+            # Get the parameter name or skip if not available
+            param_name = getattr(param, "name", None)
+            if not param_name:
+                continue
                 
-                # Get type as string, handling different representations
-                type_str = str(param.type_)
-                # Clean up type string (remove typing. prefix, class wrapper, etc.)
-                type_str = type_str.replace("typing.", "")
-                type_str = type_str.replace("<class '", "").replace("'>", "")
-                
-                # Determine if the parameter is required
-                required = param.required if hasattr(param, "required") else False
-                
-                # Get description from field_info if available
-                description = getattr(param.field_info, "description", "") if hasattr(param, "field_info") else ""
-                
-                # If this is a path parameter and we don't have a description, use a generic one
-                if param.name in path_params and not description:
-                    description = f"Path parameter: {param.name}"
-                
-                param_info = {
-                    "name": param.name,
-                    "required": required,
-                    "type": type_str,
-                    "description": description
-                }
-                params.append(param_info)
-                param_names.add(param.name)
+            # Get type as string, handling different representations
+            type_str = str(getattr(param, "type_", ""))
+            # Clean up type string (remove typing. prefix, class wrapper, etc.)
+            type_str = type_str.replace("typing.", "")
+            type_str = type_str.replace("<class '", "").replace("'>", "")
+            
+            # Determine if the parameter is required
+            required = getattr(param, "required", False)
+            
+            # Get field info and description
+            field_info = getattr(param, "field_info", None)
+            param_description = getattr(field_info, "description", "") if field_info else ""
+            
+            # If this is a path parameter and we don't have a description, use a generic one
+            if param_name in path_params and not param_description:
+                param_description = f"Path parameter: {param_name}"
+            
+            param_info = {
+                "name": param_name,
+                "required": required,
+                "type": type_str,
+                "description": param_description
+            }
+            params.append(param_info)
+            param_names.add(param_name)
         
         # Add any path parameters that weren't in the dependant params
         for name, param_info in path_params.items():
@@ -178,8 +188,10 @@ class LLMsTxtGenerator:
                 params.append(param_info)
         
         # Try to enhance param descriptions from docstring if available
-        if hasattr(route, "endpoint") and route.endpoint.__doc__:
-            docstring = route.endpoint.__doc__.strip()
+        endpoint = getattr(route, "endpoint", None)
+        docstring = getattr(endpoint, "__doc__", "")
+        if docstring:
+            docstring = docstring.strip()
             # Here we could implement more sophisticated docstring parsing if needed
                 
         return params
