@@ -1,7 +1,8 @@
-from fastapi import FastAPI, APIRouter, Query, Path, Body
+from fastapi import APIRouter, Body, FastAPI, Path, Query
 from fastapi.testclient import TestClient
+
 from fastapi_llms_txt import add_llms_txt
-from fastapi_llms_txt.plugin import LLMS_TXT_TAG, LLMS_TXT_ENDPOINT
+from fastapi_llms_txt.plugin import LLMS_TXT_ENDPOINT, LLMS_TXT_TAG
 
 
 def test_add_llms_txt_endpoint():
@@ -12,10 +13,8 @@ def test_add_llms_txt_endpoint():
         title="Test API",
         summary="A test API for testing",
         sections={
-            "Documentation": [
-                {"title": "API Docs", "url": "https://example.com/docs"}
-            ]
-        }
+            "Documentation": [{"title": "API Docs", "url": "https://example.com/docs"}]
+        },
     )
 
     client = TestClient(app)
@@ -37,10 +36,8 @@ def test_add_llms_txt_with_notes():
         summary="A test API for testing",
         notes=["Note 1", "Note 2"],
         sections={
-            "Documentation": [
-                {"title": "API Docs", "url": "https://example.com/docs"}
-            ]
-        }
+            "Documentation": [{"title": "API Docs", "url": "https://example.com/docs"}]
+        },
     )
 
     client = TestClient(app)
@@ -54,11 +51,7 @@ def test_add_llms_txt_with_notes():
 def test_add_llms_txt_empty_sections():
     """Test the endpoint with empty sections."""
     app = FastAPI()
-    add_llms_txt(
-        app,
-        title="Test API",
-        summary="A test API for testing"
-    )
+    add_llms_txt(app, title="Test API", summary="A test API for testing")
 
     client = TestClient(app)
     response = client.get(LLMS_TXT_ENDPOINT)
@@ -71,11 +64,7 @@ def test_add_llms_txt_empty_sections():
 def test_add_llms_txt_content_type():
     """Test that the content type is plain text."""
     app = FastAPI()
-    add_llms_txt(
-        app,
-        title="Test API",
-        summary="A test API for testing"
-    )
+    add_llms_txt(app, title="Test API", summary="A test API for testing")
 
     client = TestClient(app)
     response = client.get(LLMS_TXT_ENDPOINT)
@@ -100,10 +89,7 @@ def test_add_llms_txt_with_api_docs():
         return result
 
     add_llms_txt(
-        app,
-        title="Test API",
-        summary="A test API for testing",
-        include_api_docs=True
+        app, title="Test API", summary="A test API for testing", include_api_docs=True
     )
 
     client = TestClient(app)
@@ -132,10 +118,7 @@ def test_add_llms_txt_without_api_docs():
         return {"user_id": user_id}
 
     add_llms_txt(
-        app,
-        title="Test API",
-        summary="A test API for testing",
-        include_api_docs=False
+        app, title="Test API", summary="A test API for testing", include_api_docs=False
     )
 
     client = TestClient(app)
@@ -161,16 +144,13 @@ def test_add_llms_txt_with_invalid_links():
             {"title": "Valid Link", "url": "https://example.com/docs"},
             {"title": "Invalid Link - No URL"},  # Missing url key
             {"random_key": "Invalid Link - Wrong Keys"},  # No title or url
-            None  # Completely invalid object
+            None,  # Completely invalid object
         ]
     }
 
     # Should not raise any exceptions
     add_llms_txt(
-        app,
-        title="Test API",
-        summary="A test API for testing",
-        sections=invalid_links
+        app, title="Test API", summary="A test API for testing", sections=invalid_links
     )
 
     # Create test client and make request
@@ -200,7 +180,7 @@ def test_add_llms_txt_with_complex_api():
     @router.get("/items", summary="List Items", description="Get a list of all items")
     def list_items(
         skip: int = Query(0, description="Number of items to skip"),
-        limit: int = Query(100, description="Max number of items to return")
+        limit: int = Query(100, description="Max number of items to return"),
     ):
         """List all items with pagination.
 
@@ -219,9 +199,7 @@ def test_add_llms_txt_with_complex_api():
     app.include_router(router)
 
     add_llms_txt(
-        app,
-        title="Complex API Test",
-        summary="Testing a complex API structure"
+        app, title="Complex API Test", summary="Testing a complex API structure"
     )
 
     client = TestClient(app)
@@ -247,11 +225,7 @@ def test_add_llms_txt_with_existing_openapi_tags():
         {"name": "Existing Tag", "description": "Description for existing tag"}
     ]
 
-    add_llms_txt(
-        app,
-        title="Test API",
-        summary="A test API for testing"
-    )
+    add_llms_txt(app, title="Test API", summary="A test API for testing")
 
     # Check that the LLMs.txt tag was added but existing tags preserved
     assert len(app.openapi_tags) == 2
@@ -264,17 +238,16 @@ def test_add_llms_txt_with_existing_llms_tag():
     app = FastAPI()
 
     # Set existing LLMs.txt tag
-    custom_tag = {"name": LLMS_TXT_TAG, "description": "Custom description for LLMs.txt"}
+    custom_tag = {
+        "name": LLMS_TXT_TAG,
+        "description": "Custom description for LLMs.txt",
+    }
     app.openapi_tags = [custom_tag]
 
     # Verify the tag was set correctly
     assert app.openapi_tags[0] == custom_tag
 
-    add_llms_txt(
-        app,
-        title="Test API",
-        summary="A test API for testing"
-    )
+    add_llms_txt(app, title="Test API", summary="A test API for testing")
 
     # Check that the tag wasn't duplicated
     assert len(app.openapi_tags) == 1
@@ -287,11 +260,7 @@ def test_add_llms_txt_default_sections():
     app = FastAPI()
 
     # Don't provide sections parameter (should default to {})
-    add_llms_txt(
-        app,
-        title="Test API",
-        summary="A test API for testing"
-    )
+    add_llms_txt(app, title="Test API", summary="A test API for testing")
 
     client = TestClient(app)
     response = client.get("/llms.txt")
@@ -310,11 +279,7 @@ def test_path_parameter_documentation():
     def get_chapter(book_id, chapter_id):
         return {"book_id": book_id, "chapter_id": chapter_id}
 
-    add_llms_txt(
-        app,
-        title="Test API",
-        summary="A test API for testing"
-    )
+    add_llms_txt(app, title="Test API", summary="A test API for testing")
 
     client = TestClient(app)
     response = client.get("/llms.txt")
@@ -333,11 +298,7 @@ def test_add_llms_txt_no_openapi_tags():
     # Explicitly set openapi_tags to None
     app.openapi_tags = None
 
-    add_llms_txt(
-        app,
-        title="Test API",
-        summary="A test API for testing"
-    )
+    add_llms_txt(app, title="Test API", summary="A test API for testing")
 
     # Check that the tag was added
     assert len(app.openapi_tags) == 1

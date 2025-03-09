@@ -1,7 +1,8 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import APIRouter, FastAPI
 from fastapi.routing import APIRoute
-from fastapi_llms_txt.models import ProjectDescription, LinkItem
-from fastapi_llms_txt.generator import LLMsTxtGenerator, SERVE_LLMS_TXT
+
+from fastapi_llms_txt.generator import SERVE_LLMS_TXT, LLMsTxtGenerator
+from fastapi_llms_txt.models import LinkItem, ProjectDescription
 
 
 class MockDependant:
@@ -23,7 +24,16 @@ class MockFieldInfo:
 
 
 class MockRoute:
-    def __init__(self, path="", methods=None, name="", summary="", description="", endpoint=None, dependant=None):
+    def __init__(
+        self,
+        path="",
+        methods=None,
+        name="",
+        summary="",
+        description="",
+        endpoint=None,
+        dependant=None,
+    ):
         self.path = path
         self.methods = methods or ["GET"]
         self.name = name
@@ -38,9 +48,11 @@ def test_generator_basic():
     project = ProjectDescription(
         title="Test API",
         summary="A test API for testing",
-        sections={"Documentation": [
-            LinkItem(title="API Docs", url="https://example.com/docs")
-        ]}
+        sections={
+            "Documentation": [
+                LinkItem(title="API Docs", url="https://example.com/docs")
+            ]
+        },
     )
 
     generator = LLMsTxtGenerator(project)
@@ -58,9 +70,11 @@ def test_generator_with_notes():
         title="Test API",
         summary="A test API for testing",
         notes=["Note 1", "Note 2"],
-        sections={"Documentation": [
-            LinkItem(title="API Docs", url="https://example.com/docs")
-        ]}
+        sections={
+            "Documentation": [
+                LinkItem(title="API Docs", url="https://example.com/docs")
+            ]
+        },
     )
 
     generator = LLMsTxtGenerator(project)
@@ -81,9 +95,9 @@ def test_generator_multiple_sections():
             ],
             "Examples": [
                 LinkItem(title="Example 1", url="https://example.com/ex1"),
-                LinkItem(title="Example 2", url="https://example.com/ex2")
-            ]
-        }
+                LinkItem(title="Example 2", url="https://example.com/ex2"),
+            ],
+        },
     )
 
     generator = LLMsTxtGenerator(project)
@@ -98,9 +112,7 @@ def test_generator_multiple_sections():
 def test_generator_with_app():
     """Test generation with FastAPI app."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     app = FastAPI()
@@ -127,9 +139,7 @@ def test_generator_with_app():
 def test_generator_with_app_parameters():
     """Test generation with FastAPI app that has parameters."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     app = FastAPI()
@@ -164,9 +174,7 @@ def test_generator_with_app_parameters():
 def test_generator_with_empty_app():
     """Test generation with FastAPI app that has no routes."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     app = FastAPI()
@@ -181,9 +189,7 @@ def test_generator_with_empty_app():
 def test_get_endpoint_name():
     """Test getting endpoint name."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)
@@ -209,9 +215,7 @@ def test_get_endpoint_name():
 def test_get_endpoint_name_from_path():
     """Test getting endpoint name from path when function name is not available."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)
@@ -225,9 +229,7 @@ def test_get_endpoint_name_from_path():
 def test_get_endpoint_name_from_path_with_empty_parts():
     """Test getting endpoint name when path has no meaningful parts."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)
@@ -241,9 +243,7 @@ def test_get_endpoint_name_from_path_with_empty_parts():
 def test_get_all_routes_empty():
     """Test getting all routes when there are none."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)
@@ -258,7 +258,7 @@ def test_get_all_routes_filters_llms_txt():
         title="Test API",
         summary="A test API for testing",
         notes=["Test note"],
-        sections={"Test": []}
+        sections={"Test": []},
     )
 
     app = FastAPI()
@@ -301,9 +301,7 @@ def test_get_all_routes_filters_llms_txt():
 def test_generate_parameters_in_api_docs():
     """Test that parameters are correctly included in API docs."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)
@@ -313,14 +311,14 @@ def test_generate_parameters_in_api_docs():
         name="item_id",
         required=True,
         type_="int",
-        field_info=MockFieldInfo(description="The ID of the item")
+        field_info=MockFieldInfo(description="The ID of the item"),
     )
 
     query_param = MockParam(
         name="q",
         required=False,
         type_="str",
-        field_info=MockFieldInfo(description="Search query")
+        field_info=MockFieldInfo(description="Search query"),
     )
 
     route = MockRoute(
@@ -328,7 +326,7 @@ def test_generate_parameters_in_api_docs():
         methods=["GET"],
         summary="Get Item",
         description="Get an item by ID",
-        dependant=MockDependant(params=[path_param, query_param])
+        dependant=MockDependant(params=[path_param, query_param]),
     )
 
     # Mock _get_all_routes to return our route
@@ -360,9 +358,7 @@ def test_generate_parameters_in_api_docs():
 def test_generate_api_docs_no_app():
     """Test generating API docs with no app."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)
@@ -373,9 +369,7 @@ def test_generate_api_docs_no_app():
 def test_generate_api_docs_no_routes():
     """Test generating API docs with an app that has no routes."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     app = FastAPI()
@@ -387,9 +381,7 @@ def test_generate_api_docs_no_routes():
 def test_mock_route_with_params():
     """Test endpoint with mock parameters."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)
@@ -408,14 +400,14 @@ def test_mock_route_with_params():
             name="item_id",
             required=True,
             type_=IntClass(),
-            field_info=MockFieldInfo(description="The ID of the item")
+            field_info=MockFieldInfo(description="The ID of the item"),
         ),
         MockParam(
             name="q",
             required=False,
             type_=StrClass(),
-            field_info=MockFieldInfo(description="Search query")
-        )
+            field_info=MockFieldInfo(description="Search query"),
+        ),
     ]
 
     # Create a mock route with parameters
@@ -424,7 +416,7 @@ def test_mock_route_with_params():
         methods=["GET"],
         summary="Get Item",
         description="Get an item by ID",
-        dependant=MockDependant(params=params)
+        dependant=MockDependant(params=params),
     )
 
     # Test parameter extraction
@@ -445,9 +437,7 @@ def test_mock_route_with_params():
 def test_mock_route_with_no_dependant():
     """Test endpoint with no dependant attribute."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)
@@ -457,7 +447,7 @@ def test_mock_route_with_no_dependant():
         path="/test",
         methods=["GET"],
         summary="Test Endpoint",
-        description="This is a test endpoint"
+        description="This is a test endpoint",
     )
 
     # Test parameter extraction
@@ -469,9 +459,7 @@ def test_mock_route_with_no_dependant():
 def test_mock_route_with_empty_dependant():
     """Test endpoint with empty dependant params."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)
@@ -482,7 +470,7 @@ def test_mock_route_with_empty_dependant():
         methods=["GET"],
         summary="Test Endpoint",
         description="This is a test endpoint",
-        dependant=MockDependant(params=[])
+        dependant=MockDependant(params=[]),
     )
 
     # Test parameter extraction
@@ -494,9 +482,7 @@ def test_mock_route_with_empty_dependant():
 def test_path_parameter_extraction():
     """Test extraction of path parameters when no dependant parameters are found."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)
@@ -507,7 +493,7 @@ def test_path_parameter_extraction():
         methods=["GET"],
         summary="Get Chapter",
         description="Get a specific chapter of a book",
-        dependant=MockDependant(params=[])
+        dependant=MockDependant(params=[]),
     )
 
     # Test parameter extraction from path
@@ -536,9 +522,7 @@ def test_path_parameter_extraction():
 def test_mixed_parameter_extraction():
     """Test extraction of both path parameters and parameters from dependant."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)
@@ -552,7 +536,7 @@ def test_mixed_parameter_extraction():
         name="book_id",
         required=True,
         type_=IntClass(),
-        field_info=MockFieldInfo(description="The ID of the book")
+        field_info=MockFieldInfo(description="The ID of the book"),
     )
 
     # Create a parameter that will not be in dependant, should be extracted from path
@@ -562,7 +546,7 @@ def test_mixed_parameter_extraction():
         methods=["GET"],
         summary="Get Chapter",
         description="Get a specific chapter of a book",
-        dependant=MockDependant(params=[book_param])
+        dependant=MockDependant(params=[book_param]),
     )
 
     # Test parameter extraction
@@ -590,9 +574,7 @@ def test_mixed_parameter_extraction():
 def test_parameter_edge_cases():
     """Test parameter extraction edge cases."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)
@@ -632,7 +614,7 @@ def test_parameter_edge_cases():
         summary="Test Edge Cases",
         description="Testing parameter edge cases",
         dependant=MockDependant(params=[NoNameParam(), PathParam()]),
-        endpoint=mock_endpoint
+        endpoint=mock_endpoint,
     )
 
     # Test parameter extraction
@@ -652,7 +634,9 @@ def _generate_mock_api_docs(route, include_header=True):
 
     path = getattr(route, "path", "")
     methods = getattr(route, "methods", ["GET"])  # Default to GET if not specified
-    methods_str = ", ".join(methods) if methods else "GET"  # Default to GET if methods is None
+    methods_str = (
+        ", ".join(methods) if methods else "GET"
+    )  # Default to GET if methods is None
 
     docs.append(f"### {methods_str} {path}")
     docs.append("")
@@ -668,9 +652,7 @@ def _generate_mock_api_docs(route, include_header=True):
 def test_route_with_no_methods():
     """Test route with no methods attribute."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)
@@ -704,9 +686,7 @@ def test_route_with_no_methods():
 def test_route_with_no_path():
     """Test route with no path attribute."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)
@@ -746,9 +726,7 @@ def test_route_with_no_path():
 def test_get_endpoint_name_with_serve_llms_txt():
     """Test that _get_endpoint_name handles serve_llms_txt function."""
     project = ProjectDescription(
-        title="Test API",
-        summary="A test API for testing",
-        sections={}
+        title="Test API", summary="A test API for testing", sections={}
     )
 
     generator = LLMsTxtGenerator(project)

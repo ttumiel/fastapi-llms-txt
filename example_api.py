@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Path, Query, Body, HTTPException, Depends, status
+from enum import Enum
+from typing import List, Optional
+
+from fastapi import Body, Depends, FastAPI, HTTPException, Path, Query, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, Field
-from typing import List, Optional
-from enum import Enum
 
 # Import the llms-txt plugin
 from fastapi_llms_txt import add_llms_txt
@@ -11,7 +12,7 @@ from fastapi_llms_txt import add_llms_txt
 app = FastAPI(
     title="Bookstore API",
     description="A sample API for managing a bookstore",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # OAuth2 setup for auth examples
@@ -42,7 +43,7 @@ class Book(BaseModel):
                 "author": "F. Scott Fitzgerald",
                 "genre": "fiction",
                 "year_published": 1925,
-                "price": 12.99
+                "price": 12.99,
             }
         }
 
@@ -51,15 +52,38 @@ class BookUpdate(BaseModel):
     title: Optional[str] = Field(None, description="The title of the book")
     author: Optional[str] = Field(None, description="The author of the book")
     genre: Optional[Genre] = Field(None, description="The genre of the book")
-    year_published: Optional[int] = Field(None, description="The year the book was published")
+    year_published: Optional[int] = Field(
+        None, description="The year the book was published"
+    )
     price: Optional[float] = Field(None, description="The price of the book in USD")
 
 
 # Mock database
 books_db = [
-    Book(id=1, title="To Kill a Mockingbird", author="Harper Lee", genre=Genre.FICTION, year_published=1960, price=14.99),
-    Book(id=2, title="1984", author="George Orwell", genre=Genre.SCIENCE_FICTION, year_published=1949, price=11.99),
-    Book(id=3, title="The Autobiography of Benjamin Franklin", author="Benjamin Franklin", genre=Genre.BIOGRAPHY, year_published=1793, price=17.50),
+    Book(
+        id=1,
+        title="To Kill a Mockingbird",
+        author="Harper Lee",
+        genre=Genre.FICTION,
+        year_published=1960,
+        price=14.99,
+    ),
+    Book(
+        id=2,
+        title="1984",
+        author="George Orwell",
+        genre=Genre.SCIENCE_FICTION,
+        year_published=1949,
+        price=11.99,
+    ),
+    Book(
+        id=3,
+        title="The Autobiography of Benjamin Franklin",
+        author="Benjamin Franklin",
+        genre=Genre.BIOGRAPHY,
+        year_published=1793,
+        price=17.50,
+    ),
 ]
 
 
@@ -78,55 +102,73 @@ async def root():
     return {"message": "Welcome to the Bookstore API!"}
 
 
-@app.get("/books", response_model=List[Book], summary="Get all books", description="Returns a list of all books in the database.")
+@app.get(
+    "/books",
+    response_model=List[Book],
+    summary="Get all books",
+    description="Returns a list of all books in the database.",
+)
 async def get_books(
     genre: Optional[Genre] = Query(None, description="Filter books by genre"),
     min_price: Optional[float] = Query(None, description="Minimum price filter"),
-    max_price: Optional[float] = Query(None, description="Maximum price filter")
+    max_price: Optional[float] = Query(None, description="Maximum price filter"),
 ):
     """
     Get all books with optional filtering by genre and price.
-    
-    This endpoint allows you to retrieve all books in the database and apply 
+
+    This endpoint allows you to retrieve all books in the database and apply
     filters based on genre, minimum price, and maximum price.
     """
     filtered_books = books_db
-    
+
     if genre:
         filtered_books = [book for book in filtered_books if book.genre == genre]
-    
+
     if min_price is not None:
         filtered_books = [book for book in filtered_books if book.price >= min_price]
-    
+
     if max_price is not None:
         filtered_books = [book for book in filtered_books if book.price <= max_price]
-    
+
     return filtered_books
 
 
-@app.get("/books/{book_id}", response_model=Book, summary="Get a book by ID", description="Returns detailed information about a specific book.")
-async def get_book(book_id: int = Path(..., description="The ID of the book to retrieve", gt=0)):
+@app.get(
+    "/books/{book_id}",
+    response_model=Book,
+    summary="Get a book by ID",
+    description="Returns detailed information about a specific book.",
+)
+async def get_book(
+    book_id: int = Path(..., description="The ID of the book to retrieve", gt=0)
+):
     """
     Get a specific book by its ID.
-    
+
     Retrieves detailed information about a book using its unique identifier.
     Returns a 404 error if the book is not found.
     """
     for book in books_db:
         if book.id == book_id:
             return book
-    
+
     raise HTTPException(status_code=404, detail="Book not found")
 
 
-@app.post("/books", response_model=Book, status_code=status.HTTP_201_CREATED, summary="Create a new book", description="Adds a new book to the database.")
+@app.post(
+    "/books",
+    response_model=Book,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new book",
+    description="Adds a new book to the database.",
+)
 async def create_book(
     book: Book = Body(..., description="The book information to add"),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Create a new book in the database.
-    
+
     Requires authentication. The book will be assigned a new unique ID.
     """
     # Find the highest existing ID and increment by 1
@@ -136,15 +178,20 @@ async def create_book(
     return new_book
 
 
-@app.put("/books/{book_id}", response_model=Book, summary="Update a book", description="Updates an existing book's information.")
+@app.put(
+    "/books/{book_id}",
+    response_model=Book,
+    summary="Update a book",
+    description="Updates an existing book's information.",
+)
 async def update_book(
     book_id: int = Path(..., description="The ID of the book to update", gt=0),
     book_update: BookUpdate = Body(..., description="The updated book information"),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Update an existing book's information.
-    
+
     Requires authentication. Only the fields provided will be updated.
     Returns a 404 error if the book is not found.
     """
@@ -154,33 +201,40 @@ async def update_book(
             updated_book = book.copy(update=update_data)
             books_db[i] = updated_book
             return updated_book
-    
+
     raise HTTPException(status_code=404, detail="Book not found")
 
 
-@app.delete("/books/{book_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a book", description="Removes a book from the database.")
+@app.delete(
+    "/books/{book_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a book",
+    description="Removes a book from the database.",
+)
 async def delete_book(
     book_id: int = Path(..., description="The ID of the book to delete", gt=0),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Delete a book from the database.
-    
+
     Requires authentication. Returns a 404 error if the book is not found.
     """
     for i, book in enumerate(books_db):
         if book.id == book_id:
             books_db.pop(i)
             return
-    
+
     raise HTTPException(status_code=404, detail="Book not found")
 
 
-@app.post("/token", summary="Login", description="Authenticate and get an access token.")
+@app.post(
+    "/token", summary="Login", description="Authenticate and get an access token."
+)
 async def login(username: str = Body(...), password: str = Body(...)):
     """
     Authenticate user and return an access token.
-    
+
     This is a mock implementation for demonstration purposes.
     """
     # In a real app, you would validate credentials here
@@ -195,22 +249,35 @@ add_llms_txt(
     notes=[
         "This API requires authentication for all write operations.",
         "All prices are in USD.",
-        "The database is reset when the server restarts."
+        "The database is reset when the server restarts.",
     ],
     sections={
         "Documentation": [
-            {"title": "API Documentation", "url": "https://example.com/bookstore-api/docs"},
-            {"title": "OpenAPI Spec", "url": "https://example.com/bookstore-api/openapi.json"}
+            {
+                "title": "API Documentation",
+                "url": "https://example.com/bookstore-api/docs",
+            },
+            {
+                "title": "OpenAPI Spec",
+                "url": "https://example.com/bookstore-api/openapi.json",
+            },
         ],
         "SDKs": [
-            {"title": "Python SDK", "url": "https://github.com/example/bookstore-python-sdk"},
-            {"title": "JavaScript SDK", "url": "https://github.com/example/bookstore-js-sdk"}
-        ]
-    }
+            {
+                "title": "Python SDK",
+                "url": "https://github.com/example/bookstore-python-sdk",
+            },
+            {
+                "title": "JavaScript SDK",
+                "url": "https://github.com/example/bookstore-js-sdk",
+            },
+        ],
+    },
 )
 
 
 # Run the application
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="127.0.0.1", port=8000)
