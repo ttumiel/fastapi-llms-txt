@@ -124,19 +124,62 @@ class LLMsTxtGenerator:
     def _get_endpoint_params(self, route: Any) -> List[Dict[str, Any]]:
         """Extract parameter information from an endpoint."""
         params = []
+        param_names = set()
+        
+        # Extract path parameters from the path
+        path_params = {}
+        if hasattr(route, "path") and "{" in route.path:
+            path_parts = route.path.split("/")
+            for part in path_parts:
+                if part.startswith("{") and part.endswith("}"):
+                    param_name = part[1:-1]  # Remove the curly braces
+                    path_params[param_name] = {
+                        "name": param_name,
+                        "required": True,  # Path parameters are always required
+                        "type": "str",     # Default to string if we can't determine type
+                        "description": f"Path parameter: {param_name}"
+                    }
+        
+        # Process parameters from the route's dependant (these have more information)
         if hasattr(route, "dependant") and hasattr(route.dependant, "params"):
             for param in route.dependant.params:
+                # Skip if we don't have a name
+                if not hasattr(param, "name"):
+                    continue
+                
                 # Get type as string, handling different representations
                 type_str = str(param.type_)
                 # Clean up type string (remove typing. prefix, class wrapper, etc.)
                 type_str = type_str.replace("typing.", "")
                 type_str = type_str.replace("<class '", "").replace("'>", "")
                 
+                # Determine if the parameter is required
+                required = param.required if hasattr(param, "required") else False
+                
+                # Get description from field_info if available
+                description = getattr(param.field_info, "description", "") if hasattr(param, "field_info") else ""
+                
+                # If this is a path parameter and we don't have a description, use a generic one
+                if param.name in path_params and not description:
+                    description = f"Path parameter: {param.name}"
+                
                 param_info = {
                     "name": param.name,
-                    "required": param.required,
+                    "required": required,
                     "type": type_str,
-                    "description": getattr(param.field_info, "description", "")
+                    "description": description
                 }
                 params.append(param_info)
+                param_names.add(param.name)
+        
+        # Add any path parameters that weren't in the dependant params
+        for name, param_info in path_params.items():
+            if name not in param_names:
+                params.append(param_info)
+        
+        # Try to enhance param descriptions from docstring if available
+        if hasattr(route, "endpoint") and route.endpoint.__doc__:
+            docstring = route.endpoint.__doc__.strip()
+            # Here we could implement more sophisticated docstring parsing if needed
+                
         return params

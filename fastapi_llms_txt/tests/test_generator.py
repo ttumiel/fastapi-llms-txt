@@ -270,6 +270,65 @@ def test_get_all_routes_filters_llms_txt():
     assert filtered_routes[0].path == "/test"
 
 
+def test_generate_parameters_in_api_docs():
+    """Test that parameters are correctly included in API docs."""
+    project = ProjectDescription(
+        title="Test API",
+        summary="A test API for testing",
+        sections={}
+    )
+    
+    generator = LLMsTxtGenerator(project)
+    
+    # Create a mock route with parameters
+    path_param = MockParam(
+        name="item_id",
+        required=True,
+        type_="int",
+        field_info=MockFieldInfo(description="The ID of the item")
+    )
+    
+    query_param = MockParam(
+        name="q",
+        required=False,
+        type_="str",
+        field_info=MockFieldInfo(description="Search query")
+    )
+    
+    route = MockRoute(
+        path="/items/{item_id}",
+        methods=["GET"],
+        summary="Get Item",
+        description="Get an item by ID",
+        dependant=MockDependant(params=[path_param, query_param])
+    )
+    
+    # Mock _get_all_routes to return our route
+    original_get_all_routes = generator._get_all_routes
+    generator._get_all_routes = lambda: [route]
+    generator.app = FastAPI()  # Needed for _generate_api_docs
+    
+    try:
+        # Generate API docs
+        api_docs = generator._generate_api_docs()
+        
+        # Check headers and basic structure
+        assert "## API Endpoints" in api_docs
+        assert "### GET /items/{item_id}" in "\n".join(api_docs)
+        assert "Get Item" in "\n".join(api_docs)
+        assert "Get an item by ID" in "\n".join(api_docs)
+        
+        # Check parameter documentation
+        param_section_index = api_docs.index("**Parameters:**")
+        assert param_section_index > 0
+        
+        params_content = "\n".join(api_docs[param_section_index:])
+        assert "`item_id` (int, required): The ID of the item" in params_content
+        assert "`q` (str, optional): Search query" in params_content
+    finally:
+        generator._get_all_routes = original_get_all_routes
+
+
 def test_generate_api_docs_no_app():
     """Test generating API docs with no app."""
     project = ProjectDescription(
@@ -402,6 +461,102 @@ def test_mock_route_with_empty_dependant():
     extracted_params = generator._get_endpoint_params(route)
     
     assert extracted_params == []
+    
+    
+def test_path_parameter_extraction():
+    """Test extraction of path parameters when no dependant parameters are found."""
+    project = ProjectDescription(
+        title="Test API",
+        summary="A test API for testing",
+        sections={}
+    )
+    
+    generator = LLMsTxtGenerator(project)
+    
+    # Create a mock route with path parameters but no dependant params
+    route = MockRoute(
+        path="/books/{book_id}/chapters/{chapter_id}",
+        methods=["GET"],
+        summary="Get Chapter",
+        description="Get a specific chapter of a book",
+        dependant=MockDependant(params=[])
+    )
+    
+    # Test parameter extraction from path
+    extracted_params = generator._get_endpoint_params(route)
+    
+    # Collect parameter names for easier assertion
+    param_names = [p["name"] for p in extracted_params]
+    
+    assert len(extracted_params) == 2
+    assert "book_id" in param_names
+    assert "chapter_id" in param_names
+    
+    # Find the book_id parameter
+    book_param = next(p for p in extracted_params if p["name"] == "book_id")
+    assert book_param["required"] is True
+    assert book_param["type"] == "str"
+    assert "Path parameter" in book_param["description"]
+    
+    # Find the chapter_id parameter
+    chapter_param = next(p for p in extracted_params if p["name"] == "chapter_id")
+    assert chapter_param["required"] is True
+    assert chapter_param["type"] == "str"
+    assert "Path parameter" in chapter_param["description"]
+
+
+def test_mixed_parameter_extraction():
+    """Test extraction of both path parameters and parameters from dependant."""
+    project = ProjectDescription(
+        title="Test API",
+        summary="A test API for testing",
+        sections={}
+    )
+    
+    generator = LLMsTxtGenerator(project)
+    
+    # Create a parameter that will come from dependant
+    class IntClass:
+        def __str__(self):
+            return "int"
+            
+    book_param = MockParam(
+        name="book_id",
+        required=True,
+        type_=IntClass(),
+        field_info=MockFieldInfo(description="The ID of the book")
+    )
+    
+    # Create a parameter that will not be in dependant, should be extracted from path
+    # Create a mock route with both path parameters, but only one in dependant
+    route = MockRoute(
+        path="/books/{book_id}/chapters/{chapter_id}",
+        methods=["GET"],
+        summary="Get Chapter",
+        description="Get a specific chapter of a book",
+        dependant=MockDependant(params=[book_param])
+    )
+    
+    # Test parameter extraction
+    extracted_params = generator._get_endpoint_params(route)
+    
+    # Should have both parameters
+    param_names = [p["name"] for p in extracted_params]
+    assert len(extracted_params) == 2
+    assert "book_id" in param_names
+    assert "chapter_id" in param_names
+    
+    # The book_id parameter should have the info from dependant
+    book_param = next(p for p in extracted_params if p["name"] == "book_id")
+    assert book_param["required"] is True
+    assert book_param["type"] == "int"
+    assert book_param["description"] == "The ID of the book"
+    
+    # The chapter_id parameter should have the info from path extraction
+    chapter_param = next(p for p in extracted_params if p["name"] == "chapter_id")
+    assert chapter_param["required"] is True
+    assert chapter_param["type"] == "str"
+    assert "Path parameter" in chapter_param["description"]
 
 
 def _generate_mock_api_docs(route, include_header=True):

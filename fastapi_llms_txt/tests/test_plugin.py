@@ -108,6 +108,11 @@ def test_add_llms_txt_with_api_docs():
     assert "GET /users/{user_id}" in response.text
     assert "Get User" in response.text
     assert "Get user by ID" in response.text
+    assert "**Parameters:**" in response.text
+    # The parameter might be extracted either as path parameter or from dependant
+    param_line = response.text.split("**Parameters:**")[1]
+    assert "`user_id`" in param_line
+    assert "required" in param_line
 
 
 def test_add_llms_txt_without_api_docs():
@@ -228,6 +233,31 @@ def test_add_llms_txt_default_sections():
     assert response.status_code == 200
     assert "# Test API" in response.text
     assert "A test API for testing" in response.text
+
+
+def test_path_parameter_documentation():
+    """Test that path parameters are correctly documented in llms.txt."""
+    app = FastAPI()
+    
+    # Add a test endpoint with path parameters but no explicit type annotations
+    @app.get("/books/{book_id}/chapters/{chapter_id}")
+    def get_chapter(book_id, chapter_id):
+        return {"book_id": book_id, "chapter_id": chapter_id}
+    
+    add_llms_txt(
+        app,
+        title="Test API",
+        summary="A test API for testing"
+    )
+    
+    client = TestClient(app)
+    response = client.get("/llms.txt")
+    
+    assert response.status_code == 200
+    assert "GET /books/{book_id}/chapters/{chapter_id}" in response.text
+    assert "**Parameters:**" in response.text
+    assert "`book_id`" in response.text
+    assert "`chapter_id`" in response.text
 
 
 def test_add_llms_txt_no_openapi_tags():
